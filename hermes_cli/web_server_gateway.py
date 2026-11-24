@@ -66,10 +66,11 @@ def _probe_gateway_health() -> tuple[bool, dict | None]:
 
 # ``platform-name -> (config port key, adapter default)`` for port-binding gateway platforms.
 # Mirrors PORT_BINDING_PLATFORM_VALUES (gateway/config.py) and each adapter's DEFAULT_PORT /
-# DEFAULT_WEBHOOK_PORT. Display-only data for the topology readout, not a bind source.
+# DEFAULT_WEBHOOK_PORT; a plugin platform declares its own (``PlatformEntry.listen_port``).
+# Display-only data for the topology readout, not a bind source.
 _PORT_BINDING_PLATFORM_PORTS: dict[str, tuple[str, int]] = {
     "webhook": ("port", 8644), "api_server": ("port", 8642), "msgraph_webhook": ("port", 8646),
-    "feishu": ("webhook_port", 8765), "wecom_callback": ("port", 8645), "bluebubbles": ("webhook_port", 8645),
+    "feishu": ("webhook_port", 8765), "bluebubbles": ("webhook_port", 8645),
     "sms": ("webhook_port", 8080), "whatsapp_cloud": ("webhook_port", 8090), "line": ("port", 8646),
     "teams": ("port", 3978),
 }
@@ -85,12 +86,12 @@ def _profile_platform_ports(profile_home: Path, runtime: Optional[dict]) -> dict
     ``platforms`` — later wins, matching load_gateway_config precedence), falling back to the
     adapter default. Env-var overrides (e.g. WEBHOOK_PORT in that profile's .env) are not resolved.
     """
+    from gateway.config import plugin_listen_port
     platforms = (runtime or {}).get("platforms") or {}
-    active = [
-        name for name, state in platforms.items()
-        if name in _PORT_BINDING_PLATFORM_PORTS
-        and isinstance(state, dict)
-        and state.get("state") not in _PLATFORM_DEAD_STATES]
+    port_specs = {name: _PORT_BINDING_PLATFORM_PORTS.get(name) or plugin_listen_port(name)
+                  for name, state in platforms.items()
+                  if isinstance(state, dict) and state.get("state") not in _PLATFORM_DEAD_STATES}
+    active = [name for name, spec in port_specs.items() if spec]
     if not active:
         return {}
 
@@ -111,7 +112,7 @@ def _profile_platform_ports(profile_home: Path, runtime: Optional[dict]) -> dict
 
     ports: dict[str, int] = {}
     for name in active:
-        port_key, default_port = _PORT_BINDING_PLATFORM_PORTS[name]
+        port_key, default_port = port_specs[name]
         block = blocks.get(name) or {}
         extra = block.get("extra") if isinstance(block.get("extra"), dict) else {}
         raw = block.get(port_key, (extra or {}).get(port_key, default_port))

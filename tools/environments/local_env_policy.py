@@ -73,11 +73,15 @@ def _secret_source_bootstrap_env() -> frozenset[str]:
     return frozenset(name for source in list_sources() if (name := source.token_env({})))
 
 
+def _left_core_features() -> tuple:
+    from hermes_cli.left_core_migration import LEFT_CORE
+    return LEFT_CORE
+
+
 def _left_core_env(*, secrets_only: bool) -> frozenset:
     """Env of features that left core for a catalog plugin (``hermes_cli.left_core_migration``):
     stripped exactly as when core shipped them, plugin installed or not."""
-    from hermes_cli.left_core_migration import LEFT_CORE
-    return frozenset(name for feature in LEFT_CORE
+    return frozenset(name for feature in _left_core_features()
                      for name in feature.secret_env + (() if secrets_only else feature.private_env))
 
 
@@ -149,7 +153,10 @@ def _build_adapter_secret_env() -> frozenset:
 # Provider blocklist first: it imports hermes_cli.auth before hermes_cli.config, whose import
 # discovers provider plugins that expect a fully initialized auth registry.
 _PROVIDER_ENV_BLOCKLIST = _build_provider_env_blocklist()
-_ADAPTER_SECRET_ENV = _build_adapter_secret_env()
+# A left-core platform's secrets stay adapter secrets: the restart strip keeps the launch profile's
+# bot token from following a sibling exactly as when core shipped the adapter.
+_ADAPTER_SECRET_ENV = _build_adapter_secret_env() | frozenset(
+    name for feature in _left_core_features() if feature.platform for name in feature.secret_env)
 _HERMES_PROVIDER_ENV_BLOCKLIST = _PROVIDER_ENV_BLOCKLIST | _ADAPTER_SECRET_ENV
 
 _HOME_ADAPTER_SECRET_CACHE: dict[str, tuple] = {}

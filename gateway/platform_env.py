@@ -181,7 +181,7 @@ class EnvCred:
 # --- bundled rows without the plugin -------------------------------------------
 
 # Entries a bundled plugin registers under a name other than its directory, with the export prefix.
-_BUNDLED_ENV_SIBLINGS = {"wecom_callback": ("wecom", "CALLBACK_")}
+_BUNDLED_ENV_SIBLINGS: dict[str, tuple[str, str]] = {}
 
 
 @functools.cache

@@ -46,8 +46,8 @@ connected. An enabled platform can correctly show **Messaging gateway stopped**.
 | Matrix | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | DingTalk | — | ✅ | ✅ | — | ✅ | — | ✅ |
 | Feishu/Lark | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| WeCom | ✅ | ✅ | ✅ | — | — | — | — |
-| WeCom Callback | — | — | — | — | — | — | — |
+| WeCom (official plugin) | ✅ | ✅ | ✅ | — | — | — | — |
+| WeCom Callback (official plugin) | — | — | — | — | — | — | — |
 | Weixin | ✅ | ✅ | ✅ | — | — | ✅ | — |
 | BlueBubbles | — | ✅ | ✅ | — | ✅ | ✅ | — |
 | Photon (iMessage) | ✅ | ✅ | ✅ | — | ✅ | ✅ | — |
@@ -834,8 +834,8 @@ Each platform has its own toolset:
 | Matrix | `hermes-matrix` | Full tools including terminal |
 | DingTalk | `hermes-dingtalk` | Full tools including terminal |
 | Feishu/Lark | `hermes-feishu` | Full tools including terminal |
-| WeCom | `hermes-wecom` | Full tools including terminal |
-| WeCom Callback | `hermes-wecom-callback` | Full tools including terminal |
+| WeCom (official plugin) | `hermes-wecom` | Full tools including terminal, from the `wecom` plugin |
+| WeCom Callback (official plugin) | `hermes-wecom-callback` | Full tools including terminal, from the `wecom` plugin |
 | Weixin | `hermes-weixin` | Full tools including terminal |
 | BlueBubbles | `hermes-bluebubbles` | Full tools including terminal |
 | QQBot | `hermes-qqbot` | Full tools including terminal |
@@ -1092,8 +1092,8 @@ Defaults to `false`. Only platforms whose adapter implements `delete_message` ho
 - [Matrix Setup](matrix.md)
 - [DingTalk Setup](dingtalk.md)
 - [Feishu/Lark Setup](feishu.md)
-- [WeCom Setup](wecom.md)
-- [WeCom Callback Setup](wecom-callback.md)
+- [WeCom](wecom.md) (official plugin)
+- [WeCom Callback](wecom-callback.md) (official plugin)
 - [Weixin Setup (WeChat)](weixin.md)
 - [BlueBubbles Setup (iMessage)](bluebubbles.md)
 - [Photon Setup (iMessage)](photon.md)

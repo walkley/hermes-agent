@@ -200,6 +200,28 @@ yuanbao_in_use = platform_in_use(
     toolsets=("yuanbao", "hermes-yuanbao"))
 
 
+# WeCom: one plugin, two platforms. Bot mode enabled on ``extra.bot_id`` alone (the registry pass's
+# ``is_connected``) or on WECOM_BOT_ID + WECOM_SECRET (its env row); callback mode on ``extra.corp_id`` /
+# ``extra.apps`` alone or on WECOM_CALLBACK_CORP_ID + WECOM_CALLBACK_CORP_SECRET. A bare ``wecom`` in
+# plugins.disabled did not stop core's adapter (its manifest was ``wecom-platform``), so it is still use.
+_WECOM_PLUGIN_KEYS = ("platforms/wecom", "wecom-platform")
+wecom_in_use = platform_in_use(
+    "wecom", plugin_keys=_WECOM_PLUGIN_KEYS,
+    cred_sets=((("bot_id",),), (("bot_id", "WECOM_BOT_ID"), ("secret", "WECOM_SECRET"))))
+wecom_callback_in_use = platform_in_use(
+    "wecom_callback", plugin_keys=_WECOM_PLUGIN_KEYS,
+    cred_sets=((("corp_id",),), (("apps",),),
+               (("corp_id", "WECOM_CALLBACK_CORP_ID"), ("corp_secret", "WECOM_CALLBACK_CORP_SECRET"))))
+
+
+def _wecom_notice(home: Path, *, process_env: bool = False) -> str:
+    # The install's enable purges a bare ``wecom`` from the user's list; this fires only when it survived
+    # (a managed overlay pin), where it now turns the plugin off.
+    if plugin_present("wecom", home) and _plugins_listed(home, ("wecom",))[1]:
+        return "plugins.disabled lists 'wecom', which now turns WeCom off; remove it to keep using WeCom."
+    return ""
+
+
 # ``gateway.config.Platform`` members in neither table above. Named, not imported: gateway.config imports
 # hermes_cli.config, which loads this module (the left-core test asserts every member is covered).
 _GATEWAY_ONLY_PLATFORMS = ("msgraph_webhook", "relay")
@@ -221,7 +243,7 @@ def _core_platforms_except(platform: str, *others: str) -> tuple[str, ...]:
 
 # Core put the yb_* tools in ``hermes-yuanbao`` only (toolsets.py before Yuanbao left core), so no other
 # platform's default composite carried them. A third-party plugin platform core never knew stays uncovered.
-_YUANBAO_OFF_PLATFORMS = _core_platforms_except("yuanbao", "homeassistant")
+_YUANBAO_OFF_PLATFORMS = _core_platforms_except("yuanbao", "homeassistant", "wecom", "wecom_callback")
 
 _YUANBAO_NOTICE = ("Yuanbao is now a Hermes Labs plugin: built by Nous Research, not supported, and likely not "
                    "maintained going forward. Fixes from the community are welcome.")
@@ -664,6 +686,26 @@ LEFT_CORE: tuple[LeftCoreFeature, ...] = (
         toolsets=("yuanbao",), off_platforms=_YUANBAO_OFF_PLATFORMS,
         legacy_toolsets=("hermes-yuanbao", "hermes-gateway"),
         platform="yuanbao", enable_env=("YUANBAO_APP_ID", "YUANBAO_APP_SECRET"), notice=_yuanbao_notice,
+    ),
+    # One plugin ships both WeCom platforms, so two rows share ``plugin``: whichever a home uses installs
+    # it once (the install marker is per plugin). ``hermes-wecom`` / ``hermes-wecom-callback`` carried
+    # only core tools, so there is no toolset scope to keep.
+    LeftCoreFeature(
+        plugin="wecom", label="WeCom", in_use=wecom_in_use, plugin_key="platforms/wecom",
+        plugin_names=("wecom-platform",),
+        unchanged="WECOM_* settings, platforms.wecom and WECOM_HOME_CHANNEL are unchanged",
+        secret_env=("WECOM_SECRET",),
+        private_env=("WECOM_BOT_ID", "WECOM_WEBSOCKET_URL", "WECOM_ALLOWED_USERS", "WECOM_HOME_CHANNEL"),
+        platform="wecom", enable_env=("WECOM_BOT_ID", "WECOM_SECRET"), notice=_wecom_notice,
+    ),
+    LeftCoreFeature(
+        plugin="wecom", label="WeCom callback", in_use=wecom_callback_in_use, plugin_key="platforms/wecom",
+        plugin_names=("wecom-platform",),
+        unchanged="WECOM_CALLBACK_* settings and platforms.wecom_callback are unchanged",
+        secret_env=("WECOM_CALLBACK_CORP_SECRET", "WECOM_CALLBACK_TOKEN", "WECOM_CALLBACK_ENCODING_AES_KEY"),
+        private_env=("WECOM_CALLBACK_CORP_ID", "WECOM_CALLBACK_AGENT_ID"),
+        platform="wecom_callback", enable_env=("WECOM_CALLBACK_CORP_ID", "WECOM_CALLBACK_CORP_SECRET"),
+        notice=_wecom_notice,
     ),
 )
 
@@ -1109,8 +1151,8 @@ def _pending(home: Path, *, say: Callable[[str], None], process_env: bool = Fals
     from hermes_cli.memory_provider_migration import catalog_source
     out = []
     for feature in LEFT_CORE:
-        if _marked(_read_config(home), _INSTALLED_KEY, feature):
-            continue
+        if _marked(_read_config(home), _INSTALLED_KEY, feature) or any(f.plugin == feature.plugin for f in out):
+            continue  # one install per plugin: both WeCom rows name the same one
         if not feature_in_use(feature, home, process_env=process_env):
             continue
         if not _predates_split(home, feature):

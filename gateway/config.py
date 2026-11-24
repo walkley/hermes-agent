@@ -251,8 +251,6 @@ class Platform(Enum):
     WEBHOOK = "webhook"
     MSGRAPH_WEBHOOK = "msgraph_webhook"
     FEISHU = "feishu"
-    WECOM = "wecom"
-    WECOM_CALLBACK = "wecom_callback"
     WEIXIN = "weixin"
     BLUEBUBBLES = "bluebubbles"
     QQBOT = "qqbot"
@@ -323,7 +321,7 @@ _BUILTIN_PLATFORM_VALUES = frozenset(m.value for m in Platform.__members__.value
 # profile's port-binder is built in shared-listener mode and served at /p/<profile>/<path> on the
 # default's listener (gateway/platforms/shared_ingress.py); api_server/webhook are mirrored there.
 PORT_BINDING_PLATFORM_VALUES = frozenset({
-    "webhook", "api_server", "msgraph_webhook", "feishu", "wecom_callback",
+    "webhook", "api_server", "msgraph_webhook", "feishu",
     "bluebubbles", "sms", "whatsapp_cloud", "line", "teams",
 })
 # Platforms that only bind in one connection mode (Feishu's default websocket mode is outbound).
@@ -338,10 +336,22 @@ SERVED_PROFILE_MIRROR_PLATFORMS = SHARED_LISTENER_MIRROR_PLATFORMS | frozenset({
 SHARED_LISTENER_MIRROR_PATHS: dict[str, str] = {"api_server": "/v1", "webhook": "/webhooks/<route>"}
 
 
+def plugin_listen_port(platform_value: str) -> tuple:
+    """``PlatformEntry.listen_port`` (``(extra key, default port)``) of a registered plugin platform,
+    else ``()``. A lookup by name imports a deferred adapter, as every registry read does."""
+    with contextlib.suppress(Exception):
+        from gateway.platform_registry import platform_registry
+        entry = platform_registry.get(platform_value)
+        port = tuple(getattr(entry, "listen_port", ()) or ())
+        return port if len(port) == 2 else ()
+    return ()
+
+
 def platform_binds_port(platform_value: str, extra: Optional[dict] = None) -> bool:
-    """True when *platform_value* actually binds a port for *extra* config."""
+    """True when *platform_value* actually binds a port for *extra* config: a row above, or a plugin
+    platform that declares ``PlatformEntry.listen_port``."""
     if platform_value not in PORT_BINDING_PLATFORM_VALUES:
-        return False
+        return bool(plugin_listen_port(platform_value))
     expected_mode = PORT_BINDING_CONDITIONAL_MODES.get(platform_value)
     return expected_mode is None or str((extra or {}).get("connection_mode", "websocket")).strip().lower() == expected_mode
 
