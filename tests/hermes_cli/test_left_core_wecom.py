@@ -1,4 +1,4 @@
-"""The WeCom ``LEFT_CORE`` rows: homes core ran WeCom (bot or callback mode) for get the ``wecom`` official
+"""The WeCom ``LEFT_CORE`` rows: homes core ran WeCom (bot or callback mode) for get the ``wecom`` Hermes Labs
 plugin once, others never; plus the two generic seams the move added (``PlatformEntry.listen_port``,
 ``StandaloneSendPolicy.media_via_adapter``).
 
@@ -131,22 +131,6 @@ async def test_media_of_a_media_via_adapter_platform_goes_through_the_live_adapt
     media = [("/nonexistent/a.png", False)]
     await send._send_to_platform(Platform("seam-media"), SimpleNamespace(extra={}), "c1", "hi", media_files=media)
     assert routed == [("seam-media", "c1", "hi", media)]
-
-
-def test_a_wecom_the_default_installer_placed_and_the_user_removed_stays_removed(tmp_path):
-    # default_plugins recorded it; the user removed the tree; WeCom creds are still there.
-    home = _home(tmp_path, env=_BOT_ENV, config="_default_plugins_installed: [wecom]\n")
-    calls = []
-    assert lcm.migrate_home(home, install=lambda name: calls.append(name) or {"ok": True},
-                            say=lambda message: None) == []
-    assert calls == []
-
-
-def test_the_default_installer_skips_a_plugin_the_left_core_migration_placed(tmp_path):
-    from hermes_cli import default_plugins
-    home = _home(tmp_path, config="_left_core_installed: [wecom]\n")
-    assert "wecom" in default_plugins._recorded(home)
-    assert default_plugins._recorded(home, own_only=True) == set()
 
 
 def test_the_callback_toolset_keeps_its_core_era_name(_plugin_platform):

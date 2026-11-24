@@ -275,3 +275,40 @@ def test_a_retry_that_removed_our_leftover_and_then_failed_stays_owed(tmp_path, 
     assert default_plugins.install_defaults(home, entries=entries)["owed"] == ["accent-picker"]
     assert attempts == ["accent-picker"] * 3, "a tree we removed was read as the user's removal"
 
+
+
+def test_a_default_the_left_core_migration_installed_and_the_user_removed_stays_removed(tmp_path, installs):
+    # A plugin both a catalog default and a LEFT_CORE row: one automatic install per home, by either installer.
+    home = tmp_path / "home"
+    home.mkdir()
+    (home / "config.yaml").write_text("_left_core_installed: [accent-picker]\n", encoding="utf-8")
+    assert default_plugins.install_defaults(home, entries=[_entry("accent-picker")]) == {"installed": [], "owed": []}
+    assert installs == []
+    default_plugins._record(home, {"second"})  # its own marker never absorbs the other installer's
+    from hermes_yaml import safe_load
+    assert safe_load((home / "config.yaml").read_text(encoding="utf-8"))["_default_plugins_installed"] == ["second"]
+
+
+def test_a_left_core_row_skips_a_plugin_the_default_installer_placed(tmp_path, monkeypatch):
+    from dataclasses import replace
+    monkeypatch.setattr(lcm, "_attempted", set())
+    import hermes_cli.memory_provider_migration as mpm
+    monkeypatch.setattr(mpm, "catalog_source", lambda name: name)
+    row = lcm.LeftCoreFeature(plugin="accent-picker", label="Accent", in_use=lambda home, **_: True, unchanged="x")
+    monkeypatch.setattr(lcm, "LEFT_CORE", (row, replace(row, label="Accent mode two")))
+    home = tmp_path / "home"
+    home.mkdir()
+    calls: list[str] = []
+
+    def install(name):
+        calls.append(name)
+        (home / "plugins" / name).mkdir(parents=True)
+        return {"ok": True}
+    assert lcm.migrate_home(home, install=install, say=lambda message: None) == ["accent-picker"]
+    assert calls == ["accent-picker"], "two rows of one plugin installed it twice"
+
+    other = tmp_path / "other"
+    other.mkdir()
+    (other / "config.yaml").write_text("_default_plugins_installed: [accent-picker]\n", encoding="utf-8")
+    assert lcm.migrate_home(other, install=install, say=lambda message: None) == []
+    assert calls == ["accent-picker"], "a default the user removed came back through the left-core migration"

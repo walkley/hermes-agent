@@ -128,7 +128,7 @@ hermes-agent/
 │                             #   buzz, ntfy, photon, raft, simplex, whatsapp_cloud,
 │                             #   signal, weixin, bluebubbles, qqbot
 │                             #   (Home Assistant: `homeassistant` catalog plugin;
-│                             #    WeCom: `wecom` official plugin;
+│                             #    WeCom: `wecom` Hermes Labs plugin;
 │                             #    Yuanbao: `yuanbao` Hermes Labs plugin)
 │
 ├── acp_adapter/              # ACP server (VS Code / Zed / JetBrains)

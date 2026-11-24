@@ -214,12 +214,16 @@ wecom_callback_in_use = platform_in_use(
                (("corp_id", "WECOM_CALLBACK_CORP_ID"), ("corp_secret", "WECOM_CALLBACK_CORP_SECRET"))))
 
 
+_WECOM_NOTICE = ("WeCom is now a Hermes Labs plugin: built by Nous Research, not supported, and likely not "
+                 "maintained going forward. Fixes from the community are welcome.")
+
+
 def _wecom_notice(home: Path, *, process_env: bool = False) -> str:
-    # The install's enable purges a bare ``wecom`` from the user's list; this fires only when it survived
-    # (a managed overlay pin), where it now turns the plugin off.
+    # As for Yuanbao: a bare ``wecom`` that survived the install's enable (a managed overlay pin) now turns it off.
     if plugin_present("wecom", home) and _plugins_listed(home, ("wecom",))[1]:
-        return "plugins.disabled lists 'wecom', which now turns WeCom off; remove it to keep using WeCom."
-    return ""
+        return (f"{_WECOM_NOTICE} plugins.disabled lists 'wecom', which now turns WeCom off; "
+                "remove it to keep using WeCom.")
+    return _WECOM_NOTICE
 
 
 # ``gateway.config.Platform`` members in neither table above. Named, not imported: gateway.config imports
@@ -1154,9 +1158,9 @@ def _pending(home: Path, *, say: Callable[[str], None], process_env: bool = Fals
     out = []
     for feature in LEFT_CORE:
         config = _read_config(home)
-        # One automatic install per plugin and home, by either installer: a default plugin
-        # (``default_plugins``) the user removed after it installed stays removed. Both WeCom rows
-        # name the same plugin.
+        # One automatic install per plugin and home, by either installer: a plugin that is also a catalog
+        # default (``default_plugins``) the user removed after that installer placed it stays removed. Rows
+        # sharing a plugin (WeCom's two modes) install it once.
         if (_marked(config, _INSTALLED_KEY, feature) or _marked(config, _DEFAULT_INSTALLED_KEY, feature)
                 or any(f.plugin == feature.plugin for f in out)):
             continue
