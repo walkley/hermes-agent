@@ -339,7 +339,11 @@ def _plugin_platform_bundle(name: str) -> list[str]:
     try:
         from gateway.platform_registry import platform_registry
         if not platform_registry.is_registered(platform_name):
-            return []
+            # ``hermes-wecom-callback`` names platform ``wecom_callback``: toolset names use dashes
+            # where platform names use underscores (the name core's built-in bundle had).
+            platform_name = platform_name.replace("-", "_")
+            if not platform_registry.is_registered(platform_name):
+                return []
     except Exception:
         return []
     tools = set(_HERMES_CORE_TOOLS)

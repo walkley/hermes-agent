@@ -336,22 +336,38 @@ SERVED_PROFILE_MIRROR_PLATFORMS = SHARED_LISTENER_MIRROR_PLATFORMS | frozenset({
 SHARED_LISTENER_MIRROR_PATHS: dict[str, str] = {"api_server": "/v1", "webhook": "/webhooks/<route>"}
 
 
-def plugin_listen_port(platform_value: str) -> tuple:
+def plugin_listen_port(platform_value: str, home: Optional[Path] = None, *, discover: bool = False) -> tuple:
     """``PlatformEntry.listen_port`` (``(extra key, default port)``) of a registered plugin platform,
-    else ``()``. A lookup by name imports a deferred adapter, as every registry read does."""
-    with contextlib.suppress(Exception):
+    else ``()``. Plugins register per profile home, so a caller outside the owning profile's scope
+    (a multiplexed secondary, another profile's dashboard row) passes *home*: the lookup then runs
+    in that home's registry scope. *discover* also runs that home's plugin discovery first (the
+    dashboard, which may never have loaded it); never for a parked profile, whose plugins must not
+    run in this process. A lookup by name imports a deferred adapter, as every registry read does."""
+    from agent.runtime_scope import bind_profile_scope
+
+    def lookup() -> tuple:
+        from hermes_cli.plugins import discover_plugins
         from gateway.platform_registry import platform_registry
-        entry = platform_registry.get(platform_value)
-        port = tuple(getattr(entry, "listen_port", ()) or ())
+        if discover:
+            discover_plugins()  # idempotent per profile scope
+        port = tuple(getattr(platform_registry.get(platform_value), "listen_port", ()) or ())
         return port if len(port) == 2 else ()
-    return ()
+    try:
+        if home is None:
+            return lookup()
+        with bind_profile_scope(home, hydrate_secrets=False):
+            return lookup()
+    except Exception:
+        logger.debug("listen_port lookup failed for %s", platform_value, exc_info=True)
+        return ()
 
 
-def platform_binds_port(platform_value: str, extra: Optional[dict] = None) -> bool:
+def platform_binds_port(platform_value: str, extra: Optional[dict] = None, *, home: Optional[Path] = None) -> bool:
     """True when *platform_value* actually binds a port for *extra* config: a row above, or a plugin
-    platform that declares ``PlatformEntry.listen_port``."""
+    platform that declares ``PlatformEntry.listen_port`` in *home*'s plugin scope (the ambient one
+    when None)."""
     if platform_value not in PORT_BINDING_PLATFORM_VALUES:
-        return bool(plugin_listen_port(platform_value))
+        return bool(plugin_listen_port(platform_value, home))
     expected_mode = PORT_BINDING_CONDITIONAL_MODES.get(platform_value)
     return expected_mode is None or str((extra or {}).get("connection_mode", "websocket")).strip().lower() == expected_mode
 

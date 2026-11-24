@@ -1001,6 +1001,8 @@ _SCOPED_KEY = "_left_core_scoped"  # config.yaml: rows whose toolset scope this 
 # config.yaml: rows this home has had installed (by the migration, or by the user before it ran).
 # Never written before the plugin dir exists, so a home whose install never succeeded keeps retrying.
 _INSTALLED_KEY = "_left_core_installed"
+# ``hermes_cli.default_plugins``' marker for the same one-time install of a ``default: true`` plugin.
+_DEFAULT_INSTALLED_KEY = "_default_plugins_installed"
 
 
 # config.yaml: rows whose ``left_at`` config step found the core feature in use in this home.
@@ -1151,8 +1153,13 @@ def _pending(home: Path, *, say: Callable[[str], None], process_env: bool = Fals
     from hermes_cli.memory_provider_migration import catalog_source
     out = []
     for feature in LEFT_CORE:
-        if _marked(_read_config(home), _INSTALLED_KEY, feature) or any(f.plugin == feature.plugin for f in out):
-            continue  # one install per plugin: both WeCom rows name the same one
+        config = _read_config(home)
+        # One automatic install per plugin and home, by either installer: a default plugin
+        # (``default_plugins``) the user removed after it installed stays removed. Both WeCom rows
+        # name the same plugin.
+        if (_marked(config, _INSTALLED_KEY, feature) or _marked(config, _DEFAULT_INSTALLED_KEY, feature)
+                or any(f.plugin == feature.plugin for f in out)):
+            continue
         if not feature_in_use(feature, home, process_env=process_env):
             continue
         if not _predates_split(home, feature):

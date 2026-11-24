@@ -131,3 +131,53 @@ async def test_media_of_a_media_via_adapter_platform_goes_through_the_live_adapt
     media = [("/nonexistent/a.png", False)]
     await send._send_to_platform(Platform("seam-media"), SimpleNamespace(extra={}), "c1", "hi", media_files=media)
     assert routed == [("seam-media", "c1", "hi", media)]
+
+
+def test_a_wecom_the_default_installer_placed_and_the_user_removed_stays_removed(tmp_path):
+    # default_plugins recorded it; the user removed the tree; WeCom creds are still there.
+    home = _home(tmp_path, env=_BOT_ENV, config="_default_plugins_installed: [wecom]\n")
+    calls = []
+    assert lcm.migrate_home(home, install=lambda name: calls.append(name) or {"ok": True},
+                            say=lambda message: None) == []
+    assert calls == []
+
+
+def test_the_default_installer_skips_a_plugin_the_left_core_migration_placed(tmp_path):
+    from hermes_cli import default_plugins
+    home = _home(tmp_path, config="_left_core_installed: [wecom]\n")
+    assert "wecom" in default_plugins._recorded(home)
+    assert default_plugins._recorded(home, own_only=True) == set()
+
+
+def test_the_callback_toolset_keeps_its_core_era_name(_plugin_platform):
+    import toolsets
+    _plugin_platform("seam_cb")
+    assert toolsets._plugin_platform_bundle("hermes-seam-cb")
+    assert toolsets._plugin_platform_bundle("hermes-seam_cb")
+    assert toolsets._plugin_platform_bundle("hermes-seam-unknown") == []
+
+
+def test_a_positional_reply_file_over_keeps_its_meaning():
+    from gateway.platforms.send_targets import StandaloneSendPolicy
+    names = [f.name for f in __import__("dataclasses").fields(StandaloneSendPolicy)]
+    assert names.index("media_via_adapter") > names.index("reply_file_over")
+
+
+def test_listen_port_is_read_in_the_owning_profiles_plugin_scope(_plugin_platform, tmp_path, monkeypatch):
+    # A multiplexed secondary's plugin registers in that profile's scope only.
+    from gateway import config as gw_config
+    from gateway.platform_registry import platform_registry
+    from hermes_constants import get_hermes_home
+    secondary = tmp_path / "secondary"
+    secondary.mkdir()
+    seen = []
+    real_get = platform_registry.get
+
+    def scoped_get(name):
+        seen.append(str(get_hermes_home()))
+        return real_get(name)
+
+    monkeypatch.setattr(platform_registry, "get", scoped_get)
+    _plugin_platform("seam-scoped", listen_port=("port", 8645))
+    assert gw_config.platform_binds_port("seam-scoped", home=secondary) is True
+    assert seen[-1] == str(secondary)

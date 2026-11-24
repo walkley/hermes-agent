@@ -88,7 +88,7 @@ def _profile_platform_ports(profile_home: Path, runtime: Optional[dict]) -> dict
     """
     from gateway.config import plugin_listen_port
     platforms = (runtime or {}).get("platforms") or {}
-    port_specs = {name: _PORT_BINDING_PLATFORM_PORTS.get(name) or plugin_listen_port(name)
+    port_specs = {name: _PORT_BINDING_PLATFORM_PORTS.get(name) or plugin_listen_port(name, profile_home, discover=True)
                   for name, state in platforms.items()
                   if isinstance(state, dict) and state.get("state") not in _PLATFORM_DEAD_STATES}
     active = [name for name, spec in port_specs.items() if spec]
