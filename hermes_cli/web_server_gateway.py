@@ -87,8 +87,11 @@ def _profile_platform_ports(profile_home: Path, runtime: Optional[dict]) -> dict
     adapter default. Env-var overrides (e.g. WEBHOOK_PORT in that profile's .env) are not resolved.
     """
     from gateway.config import plugin_listen_port
+    from hermes_cli.profiles import profile_is_parked
     platforms = (runtime or {}).get("platforms") or {}
-    port_specs = {name: _PORT_BINDING_PLATFORM_PORTS.get(name) or plugin_listen_port(name, profile_home, discover=True)
+    # A parked profile's plugins never run here (read-only probe): its registry scope answers as loaded.
+    discover = not profile_is_parked(profile_home)
+    port_specs = {name: _PORT_BINDING_PLATFORM_PORTS.get(name) or plugin_listen_port(name, profile_home, discover=discover)
                   for name, state in platforms.items()
                   if isinstance(state, dict) and state.get("state") not in _PLATFORM_DEAD_STATES}
     active = [name for name, spec in port_specs.items() if spec]

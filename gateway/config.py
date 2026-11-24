@@ -362,12 +362,13 @@ def plugin_listen_port(platform_value: str, home: Optional[Path] = None, *, disc
         return ()
 
 
-def platform_binds_port(platform_value: str, extra: Optional[dict] = None, *, home: Optional[Path] = None) -> bool:
+def platform_binds_port(platform_value: str, extra: Optional[dict] = None, *, home: Optional[Path] = None,
+                        discover: bool = False) -> bool:
     """True when *platform_value* actually binds a port for *extra* config: a row above, or a plugin
     platform that declares ``PlatformEntry.listen_port`` in *home*'s plugin scope (the ambient one
-    when None)."""
+    when None; *discover* as for :func:`plugin_listen_port`)."""
     if platform_value not in PORT_BINDING_PLATFORM_VALUES:
-        return bool(plugin_listen_port(platform_value, home))
+        return bool(plugin_listen_port(platform_value, home, discover=discover))
     expected_mode = PORT_BINDING_CONDITIONAL_MODES.get(platform_value)
     return expected_mode is None or str((extra or {}).get("connection_mode", "websocket")).strip().lower() == expected_mode
 

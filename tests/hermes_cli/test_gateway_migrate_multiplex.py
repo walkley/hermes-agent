@@ -390,9 +390,35 @@ def test_secondary_port_binder_is_notice_with_ingress_and_blocker_without(fleet,
     assert not plan.blocked, plan.blockers
     assert any("api_server" in n and "/p/ops/" in n for n in plan.notices), plan.notices
 
-    monkeypatch.setattr(gm, "platform_serves_profile_prefix", lambda value: False)
+    monkeypatch.setattr(gm, "platform_serves_profile_prefix", lambda value, home=None: False)
     plan = gm.build_migration_plan()
     assert plan.blocked and "api_server" in plan.blockers[0] and "/p/ops/" in plan.blockers[0]
+
+
+def test_a_plugin_only_the_secondary_installed_moves_onto_the_listener(fleet):
+    """Both capabilities are read in the owning profile's plugin scope: a port-binding plugin platform
+    that only ``ops`` has is a URL-change notice, not a blocker."""
+    ops = fleet.root / "profiles/ops"
+    (ops / ".env").write_text("DISCORD_BOT_TOKEN=ops-discord-333333\n", encoding="utf-8")
+    (ops / "config.yaml").write_text(
+        "plugins:\n  enabled: [seamcb]\nplatforms:\n  seamcb:\n    enabled: true\n", encoding="utf-8")
+    plugin = ops / "plugins/seamcb"
+    plugin.mkdir(parents=True)
+    (plugin / "plugin.yaml").write_text("name: seamcb\nkind: platform\n", encoding="utf-8")
+    (plugin / "__init__.py").write_text(
+        "from gateway.platforms.base import BasePlatformAdapter\n\n"
+        "class SeamAdapter(BasePlatformAdapter):\n    serves_profile_prefix = True\n\n"
+        "def register(ctx):\n"
+        "    ctx.register_platform(name='seamcb', label='Seam', adapter_factory=SeamAdapter,\n"
+        "                          check_fn=lambda: True, listen_port=('port', 8645))\n", encoding="utf-8")
+    from hermes_cli.plugins import _reset_plugin_managers_for_tests
+    _reset_plugin_managers_for_tests()
+    try:
+        plan = gm.build_migration_plan()
+    finally:
+        _reset_plugin_managers_for_tests()
+    assert not any("seamcb" in b for b in plan.blockers), plan.blockers
+    assert any("seamcb" in n and "/p/ops/" in n for n in plan.notices), plan.notices
 
 
 def test_serves_profile_prefix_is_read_from_adapter_classes():
